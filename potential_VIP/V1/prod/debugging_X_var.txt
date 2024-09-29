@@ -17,6 +17,7 @@ sum_bonus_amt
 sum_daily_mission
 sum_leaderboard_reward
 time_diff_minutes
+days_of_activity
 max_bet_amt
 min_bet_amount
 max_win_amt
@@ -30,19 +31,12 @@ signup_email_domain_other
 signup_email_domain_privaterelay
 signup_email_domain_yahoo
 channel_app
+channel_invite friend
 channel_facebook
 channel_google
-channel_invite friend
 channel_other
-channel_sidelines
-first_geo_region_california
-first_geo_region_florida
-first_geo_region_georgia
-first_geo_region_illinois
 first_geo_region_other
-first_geo_region_texas
 signup_platform_app
-signup_platform_web
 ln_total_bet_amt
 ln_total_win_amt_sc
 ln_total_win_amt_cc
@@ -50,4 +44,3 @@ ln_sum_redeem_amt
 ln_sum_amt_total
 ln_sum_sc_coin_total
 first_purchase_amt
-days_of_activity

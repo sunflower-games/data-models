@@ -121,6 +121,3 @@ if num_to_mark > 0:
 # Create a new DataFrame with adjusted probabilities
 df_vip = df[df['probability_positive_class'] >= 0.9].copy()
 df_vip.loc[~df_vip.index.isin(selected_indices), 'probability_positive_class'] = np.nan
-
-
-
