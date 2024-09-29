@@ -88,6 +88,7 @@ df['time_diff_minutes'] = (df['first_purchase_date'] - df['signup_date']).dt.tot
 
 ##debugging - all columns appear in X
 
+df = df.fillna(0)
 missing_columns = [col for col in column_list if col not in df.columns]
 
 if missing_columns:
@@ -118,6 +119,5 @@ if num_to_mark > 0:
     selected_indices = above_threshold.sample(num_to_mark).index
     df.loc[selected_indices, 'potential_vip_ind'] = 1
 
-# Create a new DataFrame with adjusted probabilities
-df_vip = df[df['probability_positive_class'] >= 0.9].copy()
-df_vip.loc[~df_vip.index.isin(selected_indices), 'probability_positive_class'] = np.nan
+####write this dataframe to database###
+df_final = df[['user_id','signup_date','first_purchase_date','email','full_name','probability_positive_class','potential_vip_ind']]
