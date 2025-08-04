@@ -1,5 +1,0 @@
-client_secret.json
-*.json
-.env
-__pycache__/
-.streamlit/secrets.toml

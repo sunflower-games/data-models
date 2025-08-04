@@ -1,0 +1,1 @@
+select * from guyb_sandbox.marketing_projection;

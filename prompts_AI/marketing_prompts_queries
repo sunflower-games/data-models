@@ -1,0 +1,327 @@
+create or replace view ml_models.prompt_marketing_cohort_performance_roas as (
+with attribution_all as
+(
+select
+    date_trunc(date(day), month) as month,
+      case when lower(platform) LIKE '%app%' then lower(concat(channel, '_' , 'app'))
+        else lower(concat(channel, '_' ,channel_type)) end as channel_type_con,
+    lower(platform) as platform,
+    'paid' as traffic_type,
+    sum(cost) cost
+from marketing.marketing_channels_cost
+--where price_plan not in ('CPA','Rev Share')
+group by all
+),
+cpa as
+(
+select
+    user_id,
+    lower(concat(channel, '_', channel_type)) as channel_type_con,
+    case when channel = 'organic' then 'organic' else lower(traffic_type) end as traffic_type,
+    lower(platform) as platform,
+    sum(cpa_cost) cpa_cost
+from marketing.full_attribution_last_paid_before_signup
+group by all
+),
+revshare_sideline as
+(
+select
+    user_id,
+    sum(revenue_share) as revenue_share
+from marketing.fact_billing_revshare_sidelines
+group by all
+),
+revshare_parcelani as
+(
+select
+    user_id,
+    sum(revenue_share) as revenue_share
+from marketing.fact_billing_revshare_parcelani
+group by all
+),
+user_profile as
+(
+select
+    u.user_id,
+    case when u.first_purchase_date is not null then u.user_id end as user_paid,
+    u.signup_date,
+    su.channel_type_con
+from aggregations.user_profile u
+left join (select user_id,
+                  lower(concat(channel, '_', channel_type)) channel_type_con
+           from marketing.full_attribution_last_paid_before_signup) su
+on u.user_id = su.user_id
+),
+-- Modified purchases CTE for specific day intervals (non-cumulative)
+purchases as (
+    with purchase_intervals AS (
+        SELECT
+            user_id,
+            signup_date,
+            purchase_time,
+            purchase_amount,
+            DATE_DIFF(DATE(purchase_time), DATE(signup_date), DAY) AS days_since_signup
+        FROM
+            aggregations.fact_purchase
+        WHERE
+            DATE_DIFF(DATE(purchase_time), DATE(signup_date), DAY) BETWEEN 0 AND 98
+    )
+    SELECT
+        user_id,
+        DATE(signup_date) AS signup_date,
+        -- Revenue for specific days only (not cumulative)
+        COALESCE(SUM(CASE WHEN days_since_signup = 0 THEN purchase_amount END), 0) AS revenue_d0,
+        COALESCE(SUM(CASE WHEN days_since_signup = 3 THEN purchase_amount END), 0) AS revenue_d3,
+        COALESCE(SUM(CASE WHEN days_since_signup = 7 THEN purchase_amount END), 0) AS revenue_d7,
+        COALESCE(SUM(CASE WHEN days_since_signup = 10 THEN purchase_amount END), 0) AS revenue_d10,
+        COALESCE(SUM(CASE WHEN days_since_signup = 14 THEN purchase_amount END), 0) AS revenue_d14,
+        COALESCE(SUM(CASE WHEN days_since_signup = 21 THEN purchase_amount END), 0) AS revenue_d21,
+        COALESCE(SUM(CASE WHEN days_since_signup = 28 THEN purchase_amount END), 0) AS revenue_d28,
+        COALESCE(SUM(CASE WHEN days_since_signup = 35 THEN purchase_amount END), 0) AS revenue_d35,
+        COALESCE(SUM(CASE WHEN days_since_signup = 42 THEN purchase_amount END), 0) AS revenue_d42,
+        COALESCE(SUM(CASE WHEN days_since_signup = 49 THEN purchase_amount END), 0) AS revenue_d49,
+        COALESCE(SUM(CASE WHEN days_since_signup = 56 THEN purchase_amount END), 0) AS revenue_d56,
+        COALESCE(SUM(CASE WHEN days_since_signup = 63 THEN purchase_amount END), 0) AS revenue_d63,
+        COALESCE(SUM(CASE WHEN days_since_signup = 70 THEN purchase_amount END), 0) AS revenue_d70,
+        COALESCE(SUM(CASE WHEN days_since_signup = 77 THEN purchase_amount END), 0) AS revenue_d77,
+        COALESCE(SUM(CASE WHEN days_since_signup = 84 THEN purchase_amount END), 0) AS revenue_d84,
+        COALESCE(SUM(CASE WHEN days_since_signup = 91 THEN purchase_amount END), 0) AS revenue_d91,
+        COALESCE(SUM(CASE WHEN days_since_signup = 98 THEN purchase_amount END), 0) AS revenue_d98
+    FROM
+        purchase_intervals
+    GROUP BY user_id, signup_date
+),
+agg_users_amt as
+(
+select
+      up.user_id,
+      up.channel_type_con,
+      up.user_paid,
+      up.signup_date,
+      p.* except (user_id, signup_date)
+from user_profile up
+left join purchases p
+on p.user_id = up.user_id
+group by all
+),
+user_costs_profile as
+(
+select
+    cpa.user_id,
+    aum.user_paid,
+    aum.signup_date,
+    cpa.channel_type_con,
+    cpa.platform,
+    cpa.traffic_type,
+    aum.* except(user_paid, user_id, signup_date, channel_type_con)
+from cpa cpa
+left join agg_users_amt aum
+on aum.user_id = cpa.user_id
+left join revshare_sideline rs
+on rs.user_id = aum.user_id
+left join revshare_parcelani rp
+on rp.user_id = aum.user_id
+group by all
+),
+-- Daily cohort aggregation with cost allocation
+daily_cohort_data as
+(
+select
+       DATE(ucp.signup_date) as cohort_date,
+       case when channel_type_con = 'restricted_app' then 'facebook_app' else channel_type_con end as channel_type_con,
+       platform,
+       traffic_type,
+       count(distinct ucp.user_id) as total_users,
+       count(distinct ucp.user_paid) as total_paid,
+       -- Sum revenue for each specific day
+       round(sum(revenue_d0)) as revenue_d0,
+       round(sum(revenue_d3)) as revenue_d3,
+       round(sum(revenue_d7)) as revenue_d7,
+       round(sum(revenue_d10)) as revenue_d10,
+       round(sum(revenue_d14)) as revenue_d14,
+       round(sum(revenue_d21)) as revenue_d21,
+       round(sum(revenue_d28)) as revenue_d28,
+       round(sum(revenue_d35)) as revenue_d35,
+       round(sum(revenue_d42)) as revenue_d42,
+       round(sum(revenue_d49)) as revenue_d49,
+       round(sum(revenue_d56)) as revenue_d56,
+       round(sum(revenue_d63)) as revenue_d63,
+       round(sum(revenue_d70)) as revenue_d70,
+       round(sum(revenue_d77)) as revenue_d77,
+       round(sum(revenue_d84)) as revenue_d84,
+       round(sum(revenue_d91)) as revenue_d91,
+       round(sum(revenue_d98)) as revenue_d98
+from user_costs_profile ucp
+group by all
+),
+-- Get daily costs allocation
+daily_costs as
+(
+select
+    date(aa.month) as cost_date,
+    aa.channel_type_con,
+    aa.platform,
+    aa.traffic_type,
+    round(aa.cost) as daily_cost
+from attribution_all aa
+),
+-- Final cohort ROAS calculation
+cohort_roas as
+(
+select
+    dcd.cohort_date,
+    ifnull(dcd.channel_type_con,'organic') as channel_type_con,
+    dcd.platform,
+    dcd.traffic_type,
+    dcd.total_users,
+    dcd.total_paid,
+    round(ifnull(dc.daily_cost, 0)) as daily_cost,
+    -- Calculate ROAS for each day (Revenue / Cost)
+    case when ifnull(dc.daily_cost, 0) > 0 then round(dcd.revenue_d0 / dc.daily_cost, 3) else 0 end as roas_d0,
+    case when ifnull(dc.daily_cost, 0) > 0 then round(dcd.revenue_d3 / dc.daily_cost, 3) else 0 end as roas_d3,
+    case when ifnull(dc.daily_cost, 0) > 0 then round(dcd.revenue_d7 / dc.daily_cost, 3) else 0 end as roas_d7,
+    case when ifnull(dc.daily_cost, 0) > 0 then round(dcd.revenue_d10 / dc.daily_cost, 3) else 0 end as roas_d10,
+    case when ifnull(dc.daily_cost, 0) > 0 then round(dcd.revenue_d14 / dc.daily_cost, 3) else 0 end as roas_d14,
+    case when ifnull(dc.daily_cost, 0) > 0 then round(dcd.revenue_d21 / dc.daily_cost, 3) else 0 end as roas_d21,
+    case when ifnull(dc.daily_cost, 0) > 0 then round(dcd.revenue_d28 / dc.daily_cost, 3) else 0 end as roas_d28,
+    case when ifnull(dc.daily_cost, 0) > 0 then round(dcd.revenue_d35 / dc.daily_cost, 3) else 0 end as roas_d35,
+    case when ifnull(dc.daily_cost, 0) > 0 then round(dcd.revenue_d42 / dc.daily_cost, 3) else 0 end as roas_d42,
+    case when ifnull(dc.daily_cost, 0) > 0 then round(dcd.revenue_d49 / dc.daily_cost, 3) else 0 end as roas_d49,
+    case when ifnull(dc.daily_cost, 0) > 0 then round(dcd.revenue_d56 / dc.daily_cost, 3) else 0 end as roas_d56,
+    case when ifnull(dc.daily_cost, 0) > 0 then round(dcd.revenue_d63 / dc.daily_cost, 3) else 0 end as roas_d63,
+    case when ifnull(dc.daily_cost, 0) > 0 then round(dcd.revenue_d70 / dc.daily_cost, 3) else 0 end as roas_d70,
+    case when ifnull(dc.daily_cost, 0) > 0 then round(dcd.revenue_d77 / dc.daily_cost, 3) else 0 end as roas_d77,
+    case when ifnull(dc.daily_cost, 0) > 0 then round(dcd.revenue_d84 / dc.daily_cost, 3) else 0 end as roas_d84,
+    case when ifnull(dc.daily_cost, 0) > 0 then round(dcd.revenue_d91 / dc.daily_cost, 3) else 0 end as roas_d91,
+    case when ifnull(dc.daily_cost, 0) > 0 then round(dcd.revenue_d98 / dc.daily_cost, 3) else 0 end as roas_d98,
+    -- Include raw revenue for reference
+    dcd.revenue_d0,
+    dcd.revenue_d3,
+    dcd.revenue_d7,
+    dcd.revenue_d10,
+    dcd.revenue_d14,
+    dcd.revenue_d21,
+    dcd.revenue_d28,
+    dcd.revenue_d35,
+    dcd.revenue_d42,
+    dcd.revenue_d49,
+    dcd.revenue_d56,
+    dcd.revenue_d63,
+    dcd.revenue_d70,
+    dcd.revenue_d77,
+    dcd.revenue_d84,
+    dcd.revenue_d91,
+    dcd.revenue_d98
+from daily_cohort_data dcd
+left join daily_costs dc
+    on (dcd.cohort_date = dc.cost_date
+     and dcd.traffic_type = dc.traffic_type
+    and dcd.platform = dc.platform
+    and dcd.channel_type_con = dc.channel_type_con)
+)
+select *
+from cohort_roas
+order by cohort_date desc, channel_type_con, platform)
+
+create or replace view ml_models.prompt_marketing_user_billing as (
+select date,
+       user_id,
+       cpa_cost,
+       cpa_plan,
+        channel_type,
+       channel as channel_source,
+        utm_source,
+       utm_campaign,
+       utm_medium,
+       utm_content,
+       utm_term,
+       click_id,
+       payment_method_threshold,
+       payment_method,
+       signup,
+       ftd,
+       qualify_billing
+from marketing.billing_detailed_data);
+
+create or replace view ml_models.prompt_marketing_touches as (
+select user_id,
+       transaction_timestamp as touch_timestamp,
+       client_first_session,
+       user_id_signup_session,
+       user_id_ftd_session,
+       purchase_ind,
+       first_purchase_date,
+       session_id,
+       page_url,
+       page_referrer,
+       referrer_domain,
+       landing_page,
+       platform,
+       utm_source,
+       utm_campaign,
+       utm_medium,
+       utm_content,
+       utm_term,
+       utm_promo,
+       gclid,
+       fbclid,
+       ttclid,
+       click_id,
+       click_id_mapping,
+       channel_type,
+       channel as channel_source,
+       touch_seq
+      from aggregations.fact_touches_segment);
+
+      create or replace view ml_models.prompt_marketing_last_paid_before_su as (
+select user_id,
+       signup_date,
+       referrer_domain,
+       utm_source,
+       utm_campaign,
+       utm_medium,
+       utm_content,
+       utm_term,
+       channel_type,
+       channel as channel_source,
+       geo_region,
+       geo_country,
+       signup_platform,
+       geo_verified,
+       gclid,
+       fbclid,
+       ttclid,
+       click_id,
+       cpa_plan,
+       cpa_cost,
+       payment_method,
+       billing_date,
+       purchase_bucket_10 qualification_timestamp
+from marketing.full_attribution_last_paid_before_signup)
+
+create or replace view ml_models.prompt_marketing_costs as (
+select day,
+       channel_type,
+       channel as channel_source,
+       country_code,
+       cost,
+       revshare_plan,
+       platform,
+       utm_source,
+       utm_campaign,
+       utm_medium,
+       utm_content,
+utm_term,
+     price_plan,
+    qualified_users
+from marketing.marketing_channels_cost)
+
+create or replace view ml_models.prompt_marketing_cohort_metrics_app as (
+select * from marketing.marketing_cohort_metrics_app)
+
+create or replace view ml_models.prompt_marketing_cohort_metrics_web as (
+select * from marketing.marketing_cohort_metrics where lower(channel_type) <> 'app');
+
+create or replace view ml_models.prompt_marketing_affilaite_performance_metrices as (
+select * from marketing.affiliate_preformance_by_billing_date);
+

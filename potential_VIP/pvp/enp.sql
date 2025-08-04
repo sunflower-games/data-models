@@ -1,0 +1,1 @@
+select user_id, enp from aggregations.user_profile where first_purchase_date > '2025-01-01'

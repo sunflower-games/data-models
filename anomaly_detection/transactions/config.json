@@ -1,0 +1,49 @@
+{
+  "features": [
+    "success_vs_rolling_expected",
+    "volume_vs_rolling_expected",
+    "success_vs_rolling_7day",
+    "volume_vs_rolling_7day",
+    "success_vs_1h_avg",
+    "volume_vs_3h_avg",
+    "success_ma_3h",
+    "success_vs_7days_ago",
+    "success_volatility_3h",
+    "volume_volatility_3h",
+    "success_trend_3h",
+    "volume_momentum_1h"
+  ],
+  "contamination_rates": {
+    "PAYSAFE_CARD": 0.008,
+    "WEB_WORLDPAY": 0.0061,
+    "NUVEI_CARD": 0.01,
+    "WEB_NUVEI": 0.008,
+    "APP_IOS_NUVEI": 0.007,
+    "WEB_PAYSAFE": 0.0057,
+    "APP_IOS_WORLDPAY": 0.006,
+    "NUVEI_APPLEPAY": 0.008,
+    "APP_IOS_PAYSAFE": 0.0075,
+    "PAYSAFE_APPLEPAY": 0.011,
+    "WORLDPAY_APPLEPAY": 0.0105,
+    "WORLDPAY_CARD": 0.009
+  },
+  "platforms": [
+    "APP_IOS_NUVEI",
+    "APP_IOS_PAYSAFE",
+    "APP_IOS_WORLDPAY",
+    "NUVEI_APPLEPAY",
+    "NUVEI_CARD",
+    "PAYSAFE_APPLEPAY",
+    "PAYSAFE_CARD",
+    "WEB_NUVEI",
+    "WEB_PAYSAFE",
+    "WEB_WORLDPAY",
+    "WORLDPAY_APPLEPAY",
+    "WORLDPAY_CARD"
+  ],
+  "performance": {
+    "rate": 0.9295627127520294,
+    "status": "GOOD"
+  },
+  "model_type": "rolling_7day_hour_of_week"
+}

@@ -1,0 +1,13 @@
+Feature,Importance
+success_volatility_3h,4.808634829090295
+success_ma_3h,2.503938703401586
+success_vs_rolling_7day,2.2614801665853776
+volume_momentum_1h,2.1052179541570823
+volume_volatility_3h,1.9977504720942016
+success_vs_rolling_expected,1.7121479681584348
+success_vs_7days_ago,1.0739724882504333
+success_trend_3h,0.9416528063815593
+volume_vs_3h_avg,0.6693856060449036
+success_vs_1h_avg,0.6459721956910741
+volume_vs_rolling_7day,0.5467254397538809
+volume_vs_rolling_expected,0.3341443293258333

@@ -1,0 +1,1 @@
+select * from ml_models.customers_opt;
